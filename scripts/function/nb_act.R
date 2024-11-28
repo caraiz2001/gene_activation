@@ -7,9 +7,10 @@
 #'
 #' @param out_obj Outrider object containing counts, sample and gene information
 #' @param rarely_exp_genes Count/RPKM matrix filtered for rarely expressed genes (>1 RPKM in <5% of the samples)
-#' @param threshold Inactive expression threshold (RPKM = 1 per default) 
+#' @param threshold Inactive expression threshold (RPKM = 5 per default) 
 #' @param theta Dispersion parameter, corresponds to size in the NB distribution
 #' @param adj Optionally, you can adjust for multiple testing (FDR) with adj = "BH"
+#' @param sig_threshold outliers with a pval/padj lower than this value will be consider significant
 #' @return list containing pval matrix, padj matrix, mu matrix, threshold, theta.
 nb_act <- function(out_obj, rarely_exp_rpkm, threshold = 5, theta = 10, adj = "NO", sig_threshold = 0.05){
   # define the subset of genes and samples
