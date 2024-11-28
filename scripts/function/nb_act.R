@@ -1,3 +1,5 @@
+# GOOOD NB_ACT SCRIPT
+
 #' Run negative binomial activation 
 #'
 #' This functions calculates the pvalue of the observing k counts given a Negative 
@@ -26,15 +28,9 @@ nb_act <- function(out_obj, rarely_exp_rpkm, threshold = 5, theta = 10, adj = "N
   # Extract raw counts: 
   counts <- as.data.frame(assays(out_obj)$counts)
   
-  if (expected_calc == "org"){
-    # Calculate mu
-    mu_ij <- outer((threshold*subset_gene_length[,1]/1000), size_factors[, 1], "*")
-    
-  } else if (expected_calc == "mod"){
-    #Calculate mu: 
-    mu_ij <- outer((threshold*subset_gene_length[,1]/1000), (median(colSums(counts))*size_factors[,1])/1000000, "*")
-    
-  }
+  
+  #Calculate mu: 
+  mu_ij <- outer((threshold*subset_gene_length[,1]/1000), (median(colSums(counts))*size_factors[,1])/1000000, "*")
   
   rownames(mu_ij) <- rarely_exp_genes
   colnames(mu_ij) <- colnames(counts)
@@ -83,7 +79,7 @@ nb_act <- function(out_obj, rarely_exp_rpkm, threshold = 5, theta = 10, adj = "N
   }
   
   
-  overview <- data.frame(expected_calc = expected_calc, threshold = threshold, theta = theta,
+  overview <- data.frame(threshold = threshold, theta = theta,
                          number_outliers = number_outliers, observed_higher_than_expected = observed_higher_than_expected,
                          activated_genes = activated_genes,  activated_samples = activated_samples,
                          median_outliers_per_gene = median_outliers_per_gene, 
@@ -91,7 +87,6 @@ nb_act <- function(out_obj, rarely_exp_rpkm, threshold = 5, theta = 10, adj = "N
   
   # Print summary
   message("Summary:")
-  message("Expected values calculated using: ", expected_calc)
   message("Total outliers (padj or pval < 0.05): ", number_outliers)
   message("Observed > Expected: ", observed_higher_than_expected)
   message("Genes with some outlier: ",  activated_genes)

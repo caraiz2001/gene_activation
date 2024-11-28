@@ -1,6 +1,6 @@
 ## Negative Binomial Activation (NB-act):
 
-#' This functions calculates the p-value of the observing k counts given a Negative 
+#' This method calculates the p-value of the observing k counts given a Negative 
 #' Binomial distribution with expected value mu (assuming that the 
 #' gene is inactive) and fixed theta (dispersion) parameter. 
 #' One independent test is done for each gene in each sample. 
