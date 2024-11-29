@@ -3,7 +3,7 @@ title: "Gene Activation Analysis: Benchmark of NB-act"
 output: github_document
 ---
 
-## Introduction:
+# Introduction:
 This analysis explores the performance of nb-act method for detecting activation outliers, that is, 
 genes that are usually inactive in most of the samples (very low expression) and become active in a few samples (high expression). 
 
@@ -13,25 +13,25 @@ activation outliers Y-chr genes in the male samples (= positives), but not the f
 
 This idea will be applied to GTEx dataset (Whole Blood, Fibroblast, Brain) and Munich Leukemia Laboratory (MLL). 
 
+# GTEx Whole Blood: 
 
-# Load libraries: 
+## Load libraries, data and functions:  
 ```{r, echo = TRUE, message = FALSE}
 library(dplyr)
 library(SummarizedExperiment)
 library(tibble)
 library(tidyr)
 library(ggplot2)
+library(patchwork)
 ```
 
-
-# Load functions: 
 ```{r, echo = TRUE, results = FALSE, message = FALSE}
 source("/data/nasif12/home_if12/l_araiz/workspace/gene_activation/scripts/function/plots_functions.R")
 source("/data/nasif12/home_if12/l_araiz/workspace/gene_activation/scripts/function/help_functions.R")
 source("/data/nasif12/home_if12/l_araiz/workspace/gene_activation/scripts/function/nb_act.R")
 ```
 
-# Load data:
+
 Input is the outrider object containing counts, sample and gene information (sex, size factors, gene_length, etc.). 
 
 The list of Y-chr genes is used to determine which genes are expected to be activated. 
@@ -48,7 +48,7 @@ rownames(y_chr) <- y_chr$Gene.stable.ID
 ```
 
 
-# Pre-processing: 
+## Pre-processing: 
 Select a subset of 95% of females and 5% of males to ensure that Y-chr genes appear as rarely expressed. 
 ```{r, echo = TRUE, results = TRUE, message = FALSE}
 # Select Subset
@@ -60,7 +60,7 @@ Convert counts in RPKM and apply outrider criteria: > 1 RPKM in < 5% of the samp
 rare_WB <- filterRarely(WB, subset_counts = subset_counts_FB)
 ```
 
-# Run NB-act 
+## Run NB-act 
 Run NB-act method on the subset of rarely expressed genes with the original parameters (as published in the paper). 
 The formula for the expected counts has been modified to recover values in the scale of raw counts. Using size factors AND the median for library size. 
 
@@ -68,15 +68,25 @@ The formula for the expected counts has been modified to recover values in the s
 results_WB <- nb_act(WB, rare_WB$rarely_exp_rpkm, adj = "BH", threshold = 1, theta = 0.02)
 ```
 
-With the corrected equation and the original parameters, no significant outlier is found. Main goal is to
-find the optimal values for threshold and theta parameters. 
+With the corrected equation and the original parameters, no significant outlier is found. Main goal is to find the optimal values for threshold and theta parameters. 
+
+## Parameter exploration
 
 For this purpose, we will use the exploreParams function that includes: 
+
 1. Run nb-act will be run with different parameter combinations. 
-2. Convert gene x sample matrix to long format (Gene, Sample ID, Pvalue) and add a column for sex. 
+
+2. Convert gene x sample matrix to long format (Gene, Sample ID, Pvalue) and add a column for sex
+and another one indicating if they belong to chromosome Y. 
+
 3. Rank genes according to p-value. 
-4. Add a column with the cumulative sum of positive genes (those that belong to Y-chr)
+
+4. Add a column of "positives" if the gene x sample belongs to the Y - chr AND a male sample.  
+
+4. Add a column with the cumulative sum of positive genes (those that belong to Y-chr in males)
+
 5. Plot index vs cumulative sum for the different parameters 
+
 6. Record at which position half of the positives is achieved (N50) for a given threshold, theta. 
 
 ```{r, echo = TRUE, results =FALSE, message = FALSE}
@@ -100,6 +110,229 @@ curvePlot(results_long_all_WB$results_long_all, title = "Cumulative sum of y-chr
 
 ```
 
+As the resolution of this plot is not good enough to distinguish between the different parameter combinations, let's do the same with all males instead of just one subset. 
+
+For this purpose, we use the same rarely expressed genes that were define previously (45 genes), but we run NB-act on all samples. 
+
+```{r}
+counts_WB <- assays(WB)$counts
+rare_all_samples <- counts_WB[rare_WB$rarely_exp_genes,]
+print(dim(rare_all_samples))
+```
+
+```{r, message = FALSE, results = FALSE}
+# Results long is not adjusted
+results_long_all_WB <- exploreParams(WB, rare_all_samples, theta_vals = theta_vals,
+              threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
+```
+
+```{r}
+curvePlot(results_long_all_WB$results_long_all, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+```
+A low value of threshold (0.1 RPKM, less strict) and a high value of dispersion (100, less strict) appear to work better (orange lines). 
+
+Let's take a look at the N50 for each curve (position in which half of the positives is achieved)
+
+```{r, fig.width=8, fig.height=5}
+n50Plot(results_long_all_WB, plot_type = "line")
+```
+
+Again, low threshold and high variance appear to be better. 
+
+# GTEx Fibroblast: 
+
+Let's try another tissue (Fibroblast), because there is higher number of expressed Y-chr genes (in WB only 6) and to see if we observe the same tendency in terms of the parameters. 
+
+## Load data
+
+```{r}
+FB <- readRDS("/data/ceph/hdd/project/node_05/gtex_genetic_diagnosis/v8/processed_results/aberrant_expression/gencode34/outrider/Cells_-_Cultured_fibroblasts/ods.Rds")
+```
+
+Select subset (4% males) and filter for rarely expressed genes. 
+```{r}
+# Select Subset
+subset_counts_FB <- subsetRandom(FB, num_males = 7, num_females = 168)
+
+# Filter for rarely expressed
+rare_FB <- filterRarely(FB, subset_counts = subset_counts_FB)
+```
+
+## Explore parameters
+```{r, echo = TRUE, results = FALSE, message = FALSE}
+# Parameter values to test 
+threshold_vals <- c(0.1, 1, 5, 10, 50, 100)
+theta_vals <- c(0.1, 1, 10, 100)
+
+# IDs of male samples
+male_ID <- rownames(colData(FB)[which(colData(FB)$SEX == "Male"),])
+
+# Results long is not adjusted
+results_long_all_FB <- exploreParams(FB, rare_FB$rarely_exp_rpkm, theta_vals = theta_vals,
+              threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
+```
+
+```{r}
+curvePlot(results_long_all_FB$results_long_all, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+```
+
+Same idea as before, not enough resolution. Let's do it with all males. 
+
+```{r}
+counts_FB <- assays(FB)$counts
+rare_all_samples_FB <- counts_FB[rare_FB$rarely_exp_genes,]
+print(dim(rare_all_samples_FB))
+```
+
+```{r, echo = TRUE, results = FALSE, message = FALSE}
+# Results long is not adjusted
+results_long_all_FB <- exploreParams(FB, rare_all_samples_FB, theta_vals = theta_vals,
+              threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
+```
+
+```{r}
+curvePlot(results_long_all_FB$results_long_all, title = "Cumulative sum of y-chr genes")
+```
+
+No big difference can be observed. In general, too high variance is not good. Lower threshold (less conservative) and higher dispersion (less conservative) is better. 
+
+```{r}
+n50Plot(results_long_all_FB, plot_type = "line")
+```
+
+# GTEx Brain 
+
+Let's do the same with one more tissue (Brain)
+
+## Load data
+```{r}
+# Load outrider object
+BR <- readRDS("/data/ceph/hdd/project/node_05/gtex_genetic_diagnosis/v8/processed_results/aberrant_expression/gencode34/outrider/Brain_-_Cortex/ods.Rds")
+
+```
+
+## Pre-processing: 
+Subset (4% males) and filter for NB-act. 
+```{r}
+# Select Subset
+subset_counts_BR <- subsetRandom(BR, num_males = 3, num_females = 67)
+
+# Filter for rarely expressed
+rare_BR <- filterRarely(BR, subset_counts = subset_counts_BR)
+```
+
+## Explore parameters
+```{r, echo = TRUE, results = FALSE, message = FALSE}
+# IDs of male samples
+male_ID <- rownames(colData(BR)[which(colData(BR)$SEX == "Male"),])
+
+counts_BR <- assays(BR)$counts
+rare_all_samples_BR <- counts_BR[rare_BR$rarely_exp_genes,]
+print(dim(rare_all_samples_BR))
+
+
+# Results long is not adjusted
+results_long_all_BR <- exploreParams(BR, rare_all_samples_BR, theta_vals = theta_vals,
+              threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
+```
+
+```{r}
+curvePlot(results_long_all_BR$results_long_all, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+
+curvePlot(results_long_all_BR$results_long_all, title = "Cumulative sum of y-chr genes")
+```
+
+0.1 RPKM and 10 dispersion appear to work better. 
+
+```{r}
+n50Plot(results_long_all_BR, plot_type = "line")
+```
+
+
+# Munich Leukemia Laboratory: 
+This is a different dataset, containing blood samples of pacients with leukemia. 
+
+## Load data
+```{r}
+MLL <- readRDS("/s/project/mll/drop_2023feb/processed_results/aberrant_expression/v33b/outrider/leukemia_14group/ods_unfitted.Rds")
+MLL <- estimateSizeFactors(MLL)
+```
+
+## Pre-processing
+```{r}
+# Select Subset
+groups <- c("Gender", "2", "1")
+subset_counts_MLL <- subsetRandom(MLL, num_males = 32, num_females = 785, groups = groups)
+
+#Filter for rarely expressed genes (around 6000)
+rare_MLL <- filterRarely(MLL, subset_counts = subset_counts_MLL)
+```
+
+## Explore Parameters: 
+```{r,  echo = TRUE, results = FALSE, message = FALSE}
+male_ID <- rownames(colData(MLL)[which(colData(MLL)$Gender == "2"),])
+
+results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID, too_large = TRUE)
+```
+
+```{r}
+curvePlot(results_long_all_MLL$results_long_all, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+```
+
+This looks a bit weird, let's apply a filter for differential expressed genes.
+The idea is to expect activation (positives) only in those genes that are significantly differentially expressed in males vs females (padj < 0.05 and LFC > 2)
+```{r}
+dif_res <- read.table("/data/nasif12/home_if12/l_araiz/workspace/gene_act/data/dif_res_MLL.tsv")
+
+up_genes_male <- dif_res[which(dif_res$padj < 0.05 & dif_res$log2FoldChange > 2), ]
+
+# Check how many are in Y_chr
+y_dif <- up_genes_male[which(sub("\\..*", "", rownames(up_genes_male)) %in% sub("\\..*", "", y_chr$Gene.stable.ID)),]
+
+
+y_dif_genes <- rownames(y_dif)
+```
+
+
+```{r, echo = TRUE, results = FALSE, message = FALSE}
+results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_dif_genes, male_ID = male_ID, too_large = TRUE)
+```
+
+```{r}
+curvePlot(results_long_all_MLL$results_long_all, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+```
+
+```{r}
+n50Plot(results_long_all_MLL, plot_type = "line")
+```
+
+Here 1 (more conservative) and 100 (less conservative) appear to be a bit better. 
+
+# Let's try without the too_large TRUE
+```{r,  echo = TRUE, results = FALSE, message = FALSE}
+results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
+```
+
+```{r}
+sampled_data <- results_long_all_MLL$results_long_all[sample(nrow(results_long_all_MLL$results_long_all), 1000000), ]
+curvePlot(sampled_data, title = "Cumulative sum of y-chr genes",
+          only_male = TRUE, male_ID = male_ID)
+
+curvePlot(sampled_data, title = "Cumulative sum of y-chr genes")
+```
+```{r}
+n50Plot(results_long_all_MLL, plot_type = "line")
+```
+
+# CONCLUSION:
+In general, when ranking gene x sample according to p-value, Y-chr genes in males appear in the first positions (as expected). It works better in GTEx than in MLL, probably because there are other genes that are activated (such as oncogenes or cancer related genes). 
+
+Optimal parameter combinations: 0.1 - 10 (GTEx, across all tissues) or 1 - 100 (MLL), but ranking appears to work pretty well with all of them.
 
 
 

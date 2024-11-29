@@ -22,7 +22,7 @@ exploreParams <- function(out_obj, rarely_exp_rpkm, theta_vals, threshold_vals,
       results_long$index <- seq(1:nrow(results_long))
       
       # Determine N50 index:
-      total_interest <- sum(results_long$interest)
+      total_interest <- sum(results_long$positives)
       
       x_index <- tail(which(results_long$cum < 0.5*total_interest),1)
       method <- paste0("threshold_", t, "_theta_", i)
