@@ -45,6 +45,51 @@ exploreParams <- function(out_obj, rarely_exp_rpkm, theta_vals, threshold_vals,
   return(list)
 }
 
+
+# Given a vector of theta and threshold, produces the long format results 
+
+exploreParamsOnco <- function(out_obj, rarely_exp_rpkm, theta_vals, threshold_vals, 
+                          interest_list, too_large = FALSE){
+  metric <- list()
+  results_long_all <- data.frame()
+  for (t in threshold_vals){
+    for (i in theta_vals){
+      print(paste0("threshold_", t, "theta_", i))
+      results <- nb_act(out_obj, rarely_exp_rpkm, adj = "NO", threshold = t, theta = i)
+      
+      results_long <- summaryLong(results = results, interest_list = interest_list)
+      results_long <- results_long$p_long
+      results_long <- results_long[order(results_long$p_val_adj),]
+      results_long$positives <- ifelse(results_long$interest == TRUE, TRUE, FALSE)
+      results_long$threshold<- rep(t, nrow(results_long))
+      results_long$theta<- rep(i, nrow(results_long))
+      results_long$cum <- cumsum(results_long$positives)
+      results_long$index <- seq(1:nrow(results_long))
+      
+      # Determine N50 index:
+      total_interest <- sum(results_long$positives)
+      
+      x_index <- tail(which(results_long$cum < 0.5*total_interest),1)
+      method <- paste0("threshold_", t, "_theta_", i)
+      
+      # Save the important metrics
+      metric[[method]] <- list("threshold" = t, "theta" = i, "N50" = x_index )
+      
+      # Leave only TRUE and join with results_long_all
+      if (too_large == TRUE){
+        results_long <- results_long[which(results_long$interest == TRUE),]
+        results_long_all <- rbind(results_long_all, results_long)
+      } else {
+        results_long_all <- rbind(results_long_all, results_long)
+      }
+      
+      results_long <- data.frame()
+    }
+  }
+  list <- list("results_long_all" = results_long_all, "metric" = metric)
+  return(list)
+}
+
 ## Select subset of females (95%, males 5%)
 
 # input OUTRIDER OBJECT
@@ -175,5 +220,40 @@ common_exp <- function(rpkm_row){
   exp_threshold <- 1
   sum(rpkm_row > exp_threshold) > n 
 }
+
+
+# Function to calculate rarely expressed genes in a subset of samples
+rarelyExpressedNumber <- function(rpkm_subset, threshold = 1, rare_threshold = 0.05) {
+  samples <- ncol(rpkm_subset)
+  max_expressed <- rare_threshold * samples
+  # Count samples with RPKM > threshold for each gene
+  rarely_exp <- rowSums(rpkm_subset > threshold) <= max_expressed
+  return(rarely_exp) # Returns a logical vector indicating rarely expressed genes
+}
+
+
+# Function to optimize sample selection
+findOptimalSubset <- function(rpkm, oncogenes, subset_size) {
+  oncogene_rpkm <- rpkm[sub("\\..*", "", rownames(rpkm)) %in% sub("\\..*", "", rownames(oncogenes_df)), ] # Filter to oncogenes
+
+  best_subset <- NULL
+  max_rare_genes <- 0
+  
+  # Iterate over random subsets of samples to find the best subset
+  for (i in 1:2000) { # Number of iterations
+    sample_subset <- sample(colnames(oncogene_rpkm), size = subset_size) # Random sample
+    subset_rpkm <- oncogene_rpkm[, sample_subset] # Subset RPKM matrix
+    
+    rare_genes <- sum(rarelyExpressedNumber(subset_rpkm)) # Count rarely expressed genes
+    if (rare_genes > max_rare_genes) {
+      max_rare_genes <- rare_genes
+      best_subset <- sample_subset
+    }
+  }
+  
+  return(list("best_subset" = best_subset, "max_rare_genes" = max_rare_genes))
+}
+
+
 
 

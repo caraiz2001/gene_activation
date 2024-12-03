@@ -1,5 +1,5 @@
 ---
-title: "Gene Activation Analysis: Benchmark of NB-act"
+title: "Gene Activation Analysis: Benchmark of NB-act using Y-chr genes"
 output: github_document
 ---
 
@@ -126,7 +126,7 @@ results_long_all_WB <- exploreParams(WB, rare_all_samples, theta_vals = theta_va
               threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
 ```
 
-```{r}
+```{r extended curve WB}
 curvePlot(results_long_all_WB$results_long_all, title = "Cumulative sum of y-chr genes",
           only_male = TRUE, male_ID = male_ID)
 ```
@@ -134,7 +134,7 @@ A low value of threshold (0.1 RPKM, less strict) and a high value of dispersion 
 
 Let's take a look at the N50 for each curve (position in which half of the positives is achieved)
 
-```{r, fig.width=8, fig.height=5}
+```{r N50 WB, fig.width=8, fig.height=5}
 n50Plot(results_long_all_WB, plot_type = "line")
 ```
 
@@ -192,13 +192,13 @@ results_long_all_FB <- exploreParams(FB, rare_all_samples_FB, theta_vals = theta
               threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
 ```
 
-```{r}
+```{r extended curve FB}
 curvePlot(results_long_all_FB$results_long_all, title = "Cumulative sum of y-chr genes")
 ```
 
 No big difference can be observed. In general, too high variance is not good. Lower threshold (less conservative) and higher dispersion (less conservative) is better. 
 
-```{r}
+```{r N50 FB}
 n50Plot(results_long_all_FB, plot_type = "line")
 ```
 
@@ -238,7 +238,7 @@ results_long_all_BR <- exploreParams(BR, rare_all_samples_BR, theta_vals = theta
               threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
 ```
 
-```{r}
+```{r extended curve BR}
 curvePlot(results_long_all_BR$results_long_all, title = "Cumulative sum of y-chr genes",
           only_male = TRUE, male_ID = male_ID)
 
@@ -247,7 +247,7 @@ curvePlot(results_long_all_BR$results_long_all, title = "Cumulative sum of y-chr
 
 0.1 RPKM and 10 dispersion appear to work better. 
 
-```{r}
+```{r N50 brain}
 n50Plot(results_long_all_BR, plot_type = "line")
 ```
 
@@ -278,7 +278,7 @@ male_ID <- rownames(colData(MLL)[which(colData(MLL)$Gender == "2"),])
 results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID, too_large = TRUE)
 ```
 
-```{r}
+```{r curve MLL}
 curvePlot(results_long_all_MLL$results_long_all, title = "Cumulative sum of y-chr genes",
           only_male = TRUE, male_ID = male_ID)
 ```
@@ -298,7 +298,7 @@ y_dif_genes <- rownames(y_dif)
 ```
 
 
-```{r, echo = TRUE, results = FALSE, message = FALSE}
+```{r dif genes curve MLL, echo = TRUE, results = FALSE, message = FALSE}
 results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_dif_genes, male_ID = male_ID, too_large = TRUE)
 ```
 
@@ -318,13 +318,6 @@ Here 1 (more conservative) and 100 (less conservative) appear to be a bit better
 results_long_all_MLL <- exploreParams(MLL, rare_MLL$rarely_exp_rpkm, theta_vals = theta_vals, threshold_vals = threshold_vals, interest_list = y_chr$Gene.stable.ID, male_ID = male_ID)
 ```
 
-```{r}
-sampled_data <- results_long_all_MLL$results_long_all[sample(nrow(results_long_all_MLL$results_long_all), 1000000), ]
-curvePlot(sampled_data, title = "Cumulative sum of y-chr genes",
-          only_male = TRUE, male_ID = male_ID)
-
-curvePlot(sampled_data, title = "Cumulative sum of y-chr genes")
-```
 ```{r}
 n50Plot(results_long_all_MLL, plot_type = "line")
 ```
