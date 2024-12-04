@@ -120,7 +120,7 @@ subsetRandom <- function(out_obj, num_males, num_females, groups = FALSE, seed =
 }
 
 # Individual stats
-summaryLong <- function(results, summary_of = "pval", sig_threshold = 0.05, interest_list){
+summaryLong <- function(results, summary_of = "pval", sig_threshold = 0.05, interest_list, male_ID){
   if (summary_of == "pval"){
     p <- as.data.frame(results$pval)
   } else if (summary_of == "padj") {
@@ -140,12 +140,14 @@ summaryLong <- function(results, summary_of = "pval", sig_threshold = 0.05, inte
   
   # Add Significance
   p_long$interest <- ifelse(sub("\\..*", "", p_long$Gene) %in% sub("\\..*", "", interest_list) , TRUE, FALSE)
+  p_long$sex_male <- ifelse(p_long$SampleID %in% male_ID, TRUE, FALSE)
+  p_long$positives <- ifelse(p_long$interest == TRUE & p_long$sex_male == TRUE, TRUE, FALSE)
   p_long$sig <- ifelse(p_long$p_val_adj < sig_threshold, TRUE, FALSE)
   
   # Individual stats
-  total_interest <- nrow(p_long[which(p_long$interest == TRUE),])
-  true_positives <- nrow(p_long[which(p_long$sig == TRUE & p_long$interest == TRUE), ])
-  false_positives <- nrow(p_long[which(p_long$sig == TRUE & p_long$interest == FALSE),])
+  total_positives <- nrow(p_long[which(p_long$positives == TRUE),])
+  true_positives <- nrow(p_long[which(p_long$sig == TRUE & p_long$positives == TRUE), ])
+  false_positives <- nrow(p_long[which(p_long$sig == TRUE & p_long$positives == FALSE),])
   precision <- true_positives / (true_positives + false_positives)
   recall <- true_positives / total_interest
   
@@ -163,6 +165,7 @@ summaryLong <- function(results, summary_of = "pval", sig_threshold = 0.05, inte
   list <- list("stats" = stats, "p_long" = p_long)
   return(list)
 }
+
 
 
 #' Filter count data frame to contain only rarely expressed genes:
